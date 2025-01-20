@@ -12,8 +12,6 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from flask_cors import CORS
 import os
-from google.cloud.logging.handlers import StructuredLogHandler
-from google.cloud.logging import Client
 
 class RegisterForm(FlaskForm):
     def validate_username(self, username_to_check):
@@ -93,9 +91,9 @@ login_manager.login_message_category = "info"
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-client = Client()
-handler = StructuredLogHandler()
-app.logger.addHandler(handler)
+#client = Client()
+#handler = StructuredLogHandler()
+#app.logger.addHandler(handler)
 
 def log_endpoint_call(endpoint, status):
     log_data = {
@@ -103,12 +101,12 @@ def log_endpoint_call(endpoint, status):
         "status": status,
         "message": f"Endpoint {endpoint} accessed with status {status}"
     }
-    app.logger.info(log_data)
+    #app.logger.info(log_data)
 
 @app.route('/')
 @app.route('/home')
 def home_page():
-    app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'home_page'.")
+    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'home_page'.")
     log_endpoint_call("home", 200)
     body = requests.get('https://api.frankfurter.app/latest?from=EUR&to=PLN')
     response = body.json()
@@ -128,7 +126,7 @@ def home_page():
 
 @app.route('/graphs')
 def graphs_page():
-    app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'graphs_page'.")
+    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'graphs_page'.")
     log_endpoint_call("graph", 200)
     return render_template('graphs.html')
 
@@ -142,13 +140,13 @@ def login_page():
                 attempted_password=form.password.data
         ):
             login_user(attempted_user)
-            app.logger.info(f"User {attempted_user.username} logged in successfully.")
+            #app.logger.info(f"User {attempted_user.username} logged in successfully.")
             flash(f'Success! You are logged in as: {attempted_user.username}', category='success')
             return redirect(url_for('home_page'))
         else:
-            app.logger.warning(f"Failed login attempt for username: {form.username.data}")
+            #app.logger.warning(f"Failed login attempt for username: {form.username.data}")
             flash('Username and password are not match! Please try again', category='danger')
-    app.logger.info(f"Login page accessed.")
+    #app.logger.info(f"Login page accessed.")
     log_endpoint_call("login", 200)
     return render_template('login.html', form=form)
 
@@ -163,7 +161,7 @@ def signin_page():
         db.session.add(user_to_create)
         db.session.commit()
         login_user(user_to_create)
-        app.logger.info(f"New user {user_to_create.username} registered and logged in.")
+        #app.logger.info(f"New user {user_to_create.username} registered and logged in.")
         log_endpoint_call("signin", 200)
         waluty = ["PLN", "GBP", "USD", "CAD"]
         for w in waluty:
@@ -177,9 +175,9 @@ def signin_page():
         return redirect(url_for('home_page'))
     if form.errors != {}:
         for err_msg in form.errors.values():
-            app.logger.error(f"Error creating user: {err_msg}")
+            #app.logger.error(f"Error creating user: {err_msg}")
             flash(f'There was an error with creating a user: {err_msg}', category='danger')
-    app.logger.info(f"Signin page accessed.")
+    #app.logger.info(f"Signin page accessed.")
     return render_template('signin.html', form=form)
 
 
@@ -189,7 +187,7 @@ def profile_page():
     data = request.get_json(force=True)
     if data:
         quer = f'SELECT * FROM wallet WHERE (currency_code="{data["code_1"]}" AND user_id = "{current_user.id}");'
-        app.logger.info(f"User {current_user.username} initiated a transaction.")
+        #app.logger.info(f"User {current_user.username} initiated a transaction.")
         log_endpoint_call("profile", 200)
         wallets = db.session.execute(quer)
         amount_in_wallet = [float(t.amount) for t in wallets]
@@ -268,7 +266,7 @@ def profile_page_get():
 
 @app.route('/table')
 def table_page():
-    app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'table_page'.")
+    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'table_page'.")
     log_endpoint_call("table", 200)
     body = requests.get('https://api.frankfurter.app/latest?from=EUR&to=PLN')
     response = body.json()
@@ -280,9 +278,11 @@ def table_page():
 def logout_page():
     log_endpoint_call("logout", 200)
     if current_user.is_authenticated:
-        app.logger.info(f"User {current_user.username} logged out.")
+        print("ssa")
+        #app.logger.info(f"User {current_user.username} logged out.")
     else:
-        app.logger.info(f"Anonymous user attempted to access 'logout_page'.")
+        print("ssa")
+        #app.logger.info(f"Anonymous user attempted to access 'logout_page'.")
     logout_user()
     flash("You have been logged out!", category='info')
     return redirect(url_for("home_page"))
