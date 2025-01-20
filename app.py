@@ -80,8 +80,8 @@ class Wallet(db.Model):
     transaction_at = db.Column(db.DateTime(), nullable=False, default=datetime.datetime.now)
     user = db.relationship("User", back_populates="wallet", lazy=False)
 
-with app.app_context():
-        db.create_all()
+# with app.app_context():
+#         db.create_all()
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login_page"
