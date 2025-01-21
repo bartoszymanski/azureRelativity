@@ -13,6 +13,13 @@ from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationError
 from flask_cors import CORS
 import os
+import logging
+from opencensus.ext.azure.log_exporter import AzureLogHandler
+from opencensus.ext.azure.metrics_exporter import MetricsExporter
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+from opencensus.trace.tracer import Tracer
+from opencensus.trace.samplers import ProbabilitySampler
 
 class RegisterForm(FlaskForm):
     def validate_username(self, username_to_check):
@@ -93,9 +100,28 @@ login_manager.login_message_category = "info"
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-#client = Client()
-#handler = StructuredLogHandler()
-#app.logger.addHandler(handler)
+
+connection_string = os.getenv("APPINSIGHTS_CONNECTION_STRING")
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logger.addHandler(AzureLogHandler(
+    connection_string=connection_string
+))
+tracer = Tracer(
+    exporter=AzureExporter(connection_string=connection_string),
+    sampler=ProbabilitySampler(1.0)
+)
+middleware = FlaskMiddleware(
+    app,
+    exporter=AzureExporter(connection_string=connection_string),
+    sampler=ProbabilitySampler(1.0)
+)
+
+metrics_exporter = MetricsExporter(
+    exporter=AzureExporter(connection_string=connection_string),
+    interval=15.0
+)
+metrics_exporter.start()
 
 def log_endpoint_call(endpoint, status):
     log_data = {
@@ -103,12 +129,11 @@ def log_endpoint_call(endpoint, status):
         "status": status,
         "message": f"Endpoint {endpoint} accessed with status {status}"
     }
-    #app.logger.info(log_data)
+    logger.info(log_data)
 
 @app.route('/')
 @app.route('/home')
 def home_page():
-    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'home_page'.")
     log_endpoint_call("home", 200)
     body = requests.get('https://api.frankfurter.app/latest?from=EUR&to=PLN')
     response = body.json()
@@ -128,7 +153,7 @@ def home_page():
 
 @app.route('/graphs')
 def graphs_page():
-    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'graphs_page'.")
+    logger.info("User clicked on /graphs page", extra={"custom_dimensions": {"page": "graphs_page"}})
     log_endpoint_call("graph", 200)
     return render_template('graphs.html')
 
@@ -142,13 +167,12 @@ def login_page():
                 attempted_password=form.password.data
         ):
             login_user(attempted_user)
-            #app.logger.info(f"User {attempted_user.username} logged in successfully.")
+            logger.info(f"User {attempted_user.username} logged in successfully.")
             flash(f'Success! You are logged in as: {attempted_user.username}', category='success')
             return redirect(url_for('home_page'))
         else:
-            #app.logger.warning(f"Failed login attempt for username: {form.username.data}")
+            logger.warning(f"Failed login attempt for username: {form.username.data}")
             flash('Username and password are not match! Please try again', category='danger')
-    #app.logger.info(f"Login page accessed.")
     log_endpoint_call("login", 200)
     return render_template('login.html', form=form)
 
@@ -163,7 +187,7 @@ def signin_page():
         db.session.add(user_to_create)
         db.session.commit()
         login_user(user_to_create)
-        #app.logger.info(f"New user {user_to_create.username} registered and logged in.")
+        logger.info(f"New user {user_to_create.username} registered and logged in.")
         log_endpoint_call("signin", 200)
         waluty = ["PLN", "GBP", "USD", "CAD"]
         for w in waluty:
@@ -177,9 +201,8 @@ def signin_page():
         return redirect(url_for('home_page'))
     if form.errors != {}:
         for err_msg in form.errors.values():
-            #app.logger.error(f"Error creating user: {err_msg}")
+            logger.error(f"Error creating user: {err_msg}")
             flash(f'There was an error with creating a user: {err_msg}', category='danger')
-    #app.logger.info(f"Signin page accessed.")
     return render_template('signin.html', form=form)
 
 
@@ -188,10 +211,15 @@ def signin_page():
 def profile_page():
     data = request.get_json(force=True)
     if data:
-        quer = f'SELECT * FROM wallet WHERE (currency_code="{data["code_1"]}" AND user_id = "{current_user.id}");'
-        #app.logger.info(f"User {current_user.username} initiated a transaction.")
+        quer = """
+            SELECT *
+            FROM wallet
+            WHERE currency_code = ?
+            AND user_id = ?
+        """
+        logger.info(f"User {current_user.username} initiated a transaction.")
         log_endpoint_call("profile", 200)
-        wallets = db.session.execute(quer)
+        wallets = db.session.execute(quer, (data["code_1"], current_user.id)).fetchall()
         amount_in_wallet = [float(t.amount) for t in wallets]
         sum_in_curr = sum(amount_in_wallet)
         if float(sum_in_curr) >= float(data['content']):
@@ -214,8 +242,14 @@ def profile_page():
 @app.route('/profile')
 @login_required
 def profile_page_get():
-    query0 = 'SELECT transaction_at FROM wallet WHERE user_id = :user_id AND currency_code="USD" AND amount=100;'
-    starter = db.session.execute(query0, {'user_id': current_user.id}).fetchall()
+    query0 = """
+            SELECT transaction_at
+            FROM wallet
+            WHERE user_id = ?
+            AND currency_code = ?
+            AND amount = ?
+        """
+    starter = db.session.execute(query0, (current_user.id, "USD", 100)).fetchall()
     if not starter:
         return "No transactions for this user with USD 100", 404
 
@@ -226,9 +260,13 @@ def profile_page_get():
     rate_dict = requests.get(f"https://api.frankfurter.app/{date_str}?from=USD&to=PLN").json()
     rate = float(rate_dict['rates']['PLN']) * 100
 
-    query1 = 'SELECT currency_code FROM wallet WHERE user_id = :user_id;'
-    codes_in_wallet = db.session.execute(query1, {'user_id': current_user.id}).fetchall()
-    currencies = list(set([row.currency_code for row in codes_in_wallet]))
+    query1 = """
+        SELECT currency_code
+        FROM wallet
+        WHERE user_id = ?
+    """
+    codes_in_wallet = db.session.execute(query1, (current_user.id,)).fetchall()
+    currencies = list(set(row.currency_code for row in codes_in_wallet))
 
     dict_wal = {}
     balance = 0
@@ -250,8 +288,12 @@ def profile_page_get():
     balance = round(balance, 2)
     profit = round(((balance - rate)/rate), 3) * 100
 
-    query2 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = :user_id;'
-    all_transactions = db.session.execute(query2, {'user_id': current_user.id}).fetchall()
+    query2 = """
+        SELECT transaction_at, currency_code, amount
+        FROM wallet
+        WHERE user_id = ?
+    """
+    all_transactions = db.session.execute(query2, (current_user.id,)).fetchall()
     history = []
     for row in all_transactions:
         if row.amount != 0:
@@ -268,7 +310,6 @@ def profile_page_get():
 
 @app.route('/table')
 def table_page():
-    #app.logger.info(f"User {current_user.username if current_user.is_authenticated else 'Anonymous'} accessed 'table_page'.")
     log_endpoint_call("table", 200)
     body = requests.get('https://api.frankfurter.app/latest?from=EUR&to=PLN')
     response = body.json()
@@ -280,11 +321,9 @@ def table_page():
 def logout_page():
     log_endpoint_call("logout", 200)
     if current_user.is_authenticated:
-        print("ssa")
-        #app.logger.info(f"User {current_user.username} logged out.")
+        logger.info(f"User {current_user.username} logged out.")
     else:
-        print("ssa")
-        #app.logger.info(f"Anonymous user attempted to access 'logout_page'.")
+        logger.info("Anonymous user attempted to log out.")
     logout_user()
     flash("You have been logged out!", category='info')
     return redirect(url_for("home_page"))
