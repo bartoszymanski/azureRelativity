@@ -204,7 +204,7 @@ def signin_page():
 def profile_page():
     data = request.get_json(force=True)
     if data:
-        quer = f'SELECT * FROM wallet WHERE (currency_code="{data["code_1"]}" AND user_id = "{current_user.id}");'
+        quer = f"SELECT * FROM wallet WHERE (currency_code='{data["code_1"]}' AND user_id = {current_user.id});"
         app.logger.info(f"User {current_user.username} initiated a transaction.")
         log_endpoint_call("profile", 200)
         wallets = db.session.execute(quer)
