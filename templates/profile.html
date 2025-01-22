@@ -212,4 +212,28 @@
 
 <script src="../static/js/profile.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // Check if there are errors in the backend response
+    fetch('/profile')
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Unknown error');
+                });
+            }
+            return response.text();
+        })
+        .then(html => {
+            document.body.innerHTML = html; // Render the page if no errors
+        })
+        .catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message,
+            });
+        });
+</script>
+
 {% endblock %}
