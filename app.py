@@ -256,7 +256,7 @@ def profile_page_get():
         balance = 0
 
         for curr in currencies:
-            query2 = f'SELECT amount FROM wallet WHERE currency_code = {curr} AND user_id = {current_user.id};'
+            query2 = f"SELECT amount FROM wallet WHERE currency_code = '{curr}' AND user_id = {current_user.id};"
             wallets = db.session.execute(query2).fetchall()
             print(f"Query 2 executed for currency {curr}: ", wallets)
 
@@ -278,7 +278,7 @@ def profile_page_get():
         print("Balance calculated: ", balance)
         print("Profit calculated: ", profit)
 
-        query3 = f'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = {current_user.id};'
+        query3 = f"SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = {current_user.id};"
         all_transactions = db.session.execute(query3).fetchall()
         print("Query 3 executed successfully: ", all_transactions)
 
