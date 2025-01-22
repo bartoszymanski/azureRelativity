@@ -199,180 +199,86 @@ def signin_page():
             flash(f'There was an error with creating a user: {err_msg}', category='danger')
     return render_template('signin.html', form=form)
 
-
 @app.route('/profile', methods=['POST'])
 @login_required
 def profile_page():
-    try:
-        data = request.get_json(force=True)
-        if data:
-            # Query 0: Validate wallet data for user
-            quer = """
-                SELECT *
-                FROM wallet
-                WHERE currency_code = ?
-                AND user_id = ?
-            """
-            wallets = db.session.execute(quer, (data["code_1"], current_user.id)).fetchall()
-            amount_in_wallet = [float(t.amount) for t in wallets]
-            sum_in_curr = sum(amount_in_wallet)
-
-            if float(sum_in_curr) >= float(data['content']):
-                # Fetch exchange rate
-                rate_dict = requests.get(
-                    f"https://api.frankfurter.app/latest?amount={data['content']}&from={data['code_1']}&to={data['code_2']}"
-                ).json()
-                rate = float(rate_dict['rates'][data['code_2']])
-
-                # Update wallet balances
-                obj_from = Wallet(user_id=current_user.id, currency_code=data['code_1'], amount=-round(float(data['content']), 2))
-                obj_to = Wallet(user_id=current_user.id, currency_code=data['code_2'], amount=round(rate, 2))
-                db.session.add(obj_from)
-                db.session.commit()
-                db.session.add(obj_to)
-                db.session.commit()
-
-                return '', 204
-            else:
-                return jsonify({'error': 'Insufficient funds for transaction.'}), 400
+    data = request.get_json(force=True)
+    if data:
+        quer = f'SELECT * FROM wallet WHERE (currency_code="{data["code_1"]}" AND user_id = "{current_user.id}");'
+        app.logger.info(f"User {current_user.username} initiated a transaction.")
+        log_endpoint_call("profile", 200)
+        wallets = db.session.execute(quer)
+        amount_in_wallet = [float(t.amount) for t in wallets]
+        sum_in_curr = sum(amount_in_wallet)
+        if float(sum_in_curr) >= float(data['content']):
+            rate_dict = requests.get(
+                f"https://api.frankfurter.app/latest?amount={data['content']}&from={data['code_1']}&to={data['code_2']}").json()
+            rate = float(rate_dict['rates'][data['code_2']])
+            obj_from = Wallet(user_id=current_user.id, currency_code=data['code_1'], amount=-round(float(data['content']), 2))
+            obj_to = Wallet(user_id=current_user.id, currency_code=data['code_2'], amount=round(rate, 2))
+            db.session.add(obj_from)
+            db.session.commit()
+            db.session.add(obj_to)
+            db.session.commit()
+            return '', 204
         else:
-            return jsonify({'error': 'Invalid request data.'}), 400
-    except SQLAlchemyError as e:
-        return jsonify({'error': f'Database error: {str(e)}'}), 500
-    except requests.RequestException as e:
-        return jsonify({'error': f'External API error: {str(e)}'}), 500
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+            return 'Transaction refused.', 400
+    else:
+        return 'Transaction refused.', 400
 
 @app.route('/profile')
 @login_required
 def profile_page_get():
-    try:
-        # Query 0: Sprawdź, czy istnieje transakcja z USD 100
-        query0 = """
-            SELECT transaction_at
-            FROM wallet
-            WHERE user_id = ?
-            AND currency_code = ?
-            AND amount = ?
-        """
-        starter = db.session.execute(query0, (current_user.id, "USD", 100)).fetchall()
-        if not starter:
-            return jsonify({'error': 'No transactions for this user with USD 100'}), 404
+    query0 = 'SELECT transaction_at FROM wallet WHERE user_id = ? AND currency_code="USD" AND amount=100;'
+    starter = db.session.execute(query0, [current_user.id]).fetchall()
+    if not starter:
+        return "No transactions for this user with USD 100", 404
 
-        # Pierwsza transakcja spełniająca warunek
-        start_date_obj = starter[0].transaction_at
+    start_date_obj = starter[0].transaction_at
+    date_str = start_date_obj.strftime("%Y-%m-%d")
 
-        # Jeżeli z bazy przychodzi string, to wymuś konwersję na datetime
-        if isinstance(start_date_obj, str):
-            # Spróbuj sparsować dokładny format 'YYYY-MM-DD HH:MM:SS'
-            try:
-                start_date_obj = datetime.datetime.strptime(start_date_obj, '%Y-%m-%d %H:%M:%S')
-            except ValueError:
-                # Jeżeli mamy samą datę bez godziny 'YYYY-MM-DD'
-                start_date_obj = datetime.datetime.strptime(start_date_obj, '%Y-%m-%d')
+    rate_dict = requests.get(f"https://api.frankfurter.app/{date_str}?from=USD&to=PLN").json()
+    rate = float(rate_dict['rates']['PLN']) * 100
 
-        date_str = start_date_obj.strftime("%Y-%m-%d")
+    query1 = 'SELECT currency_code FROM wallet WHERE user_id = ?;'
+    codes_in_wallet = db.session.execute(query1, [current_user.id]).fetchall()
+    currencies = list(set([row.currency_code for row in codes_in_wallet]))
 
-        # Pobierz kurs z frankfurter.app na tę datę
-        url = f"https://api.frankfurter.app/{date_str}?from=USD&to=PLN"
-        response = requests.get(url)
-        response.raise_for_status()  # Rzuci wyjątek, gdy np. 4xx/5xx
-        rate_dict = response.json()
+    dict_wal = {}
+    balance = 0
 
-        # Sprawdź, czy w odpowiedzi jest to, czego oczekujemy
-        if 'rates' not in rate_dict or 'PLN' not in rate_dict['rates']:
-            return jsonify({'error': f'Błędna odpowiedź z API: {rate_dict}'}), 500
+    for curr in currencies:
+        query2 = 'SELECT amount FROM wallet WHERE currency_code = ? AND user_id = ?;'
+        wallets = db.session.execute(query2, [curr, current_user.id]).fetchall()
+        amount_in_wallet = [float(t.amount) for t in wallets]
+        sum_in_curr = sum(amount_in_wallet)
+        dict_wal[curr] = round(sum_in_curr, 2)
 
-        # Tu już powinien być poprawny kurs
-        rate = float(rate_dict['rates']['PLN']) * 100
+        if 'PLN' not in curr:
+            url = f'https://api.frankfurter.app/latest?from={curr}&to=PLN'
+            response = requests.get(url).json()
+            value = round(response["rates"]["PLN"], 2)
+        else:
+            value = 1
+        balance += sum_in_curr * value
 
-        # Query 1: Pobierz kody walut w portfelu
-        query1 = """
-            SELECT currency_code
-            FROM wallet
-            WHERE user_id = ?
-        """
-        codes_in_wallet = db.session.execute(query1, (current_user.id,)).fetchall()
-        currencies = list(set(row.currency_code for row in codes_in_wallet))
+    balance = round(balance, 2)
+    profit = round(((balance - rate) / rate), 3) * 100
 
-        dict_wal = {}
-        balance = 0
+    query3 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = ?;'
+    all_transactions = db.session.execute(query3, [current_user.id]).fetchall()
+    history = []
+    for row in all_transactions:
+        if row.amount != 0:
+            formatted_date = row.transaction_at.strftime("%Y-%m-%d %H:%M:%S")
+            history_dict = {
+                'date': formatted_date,
+                'code': row.currency_code,
+                'amount': round(row.amount, 2)
+            }
+            history.append(history_dict)
 
-        # Zbuduj słownik aktualnych stanów konta
-        for curr in currencies:
-            # Query 2: Suma kwot dla danej waluty
-            quer = """
-                SELECT amount
-                FROM wallet
-                WHERE currency_code = ?
-                AND user_id = ?
-            """
-            wallets = db.session.execute(quer, (curr, current_user.id)).fetchall()
-            amount_in_wallet = [float(t.amount) for t in wallets]  # DECIMAL -> float
-            sum_in_curr = sum(amount_in_wallet)
-            dict_wal[curr] = round(sum_in_curr, 2)
-
-            # Konwersja do PLN (jeśli waluta != PLN)
-            if curr != 'PLN':
-                conv_url = f'https://api.frankfurter.app/latest?from={curr}&to=PLN'
-                conv_resp = requests.get(conv_url)
-                conv_resp.raise_for_status()
-                conv_data = conv_resp.json()
-
-                if 'rates' not in conv_data or 'PLN' not in conv_data['rates']:
-                    return jsonify({'error': f'Błędna odpowiedź z API: {conv_data}'}), 500
-
-                value = round(float(conv_data["rates"]["PLN"]), 2)
-            else:
-                value = 1
-
-            balance += sum_in_curr * value
-
-        balance = round(balance, 2)
-        profit = round(((balance - rate) / rate), 3) * 100
-
-        # Query 3: Historia transakcji
-        query2 = """
-            SELECT transaction_at, currency_code, amount
-            FROM wallet
-            WHERE user_id = ?
-        """
-        all_transactions = db.session.execute(query2, (current_user.id,)).fetchall()
-        history = []
-        for row in all_transactions:
-            if row.amount != 0:
-                row_date = row.transaction_at
-
-                # Znowu - jeśli trafisz na string, konwertuj
-                if isinstance(row_date, str):
-                    try:
-                        row_date = datetime.datetime.strptime(row_date, '%Y-%m-%d %H:%M:%S')
-                    except ValueError:
-                        row_date = datetime.datetime.strptime(row_date, '%Y-%m-%d')
-
-                formatted_date = row_date.strftime("%Y-%m-%d %H:%M:%S")
-                history_dict = {
-                    'date': formatted_date,
-                    'code': row.currency_code,
-                    'amount': round(float(row.amount), 2)
-                }
-                history.append(history_dict)
-
-        return render_template(
-            'profile.html',
-            dict_wal=dict_wal,
-            balance=balance,
-            hist=history[::-1],
-            profit=round(profit, 3)
-        )
-
-    except SQLAlchemyError as e:
-        return jsonify({'error': f'Database error: {str(e)}'}), 500
-    except requests.RequestException as e:
-        return jsonify({'error': f'External API error: {str(e)}'}), 500
-    except Exception as e:
-        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+    return render_template('profile.html', dict_wal=dict_wal, balance=balance, hist=history[::-1], profit=round(profit, 3))
 
 @app.route('/table')
 def table_page():
