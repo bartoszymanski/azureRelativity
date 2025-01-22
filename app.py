@@ -55,8 +55,8 @@ app = Flask(__name__, template_folder='./templates', static_folder='./static')
 CORS(app)
 app.debug = True
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-params = urllib.parse.quote_plus(os.getenv('DB_URI'))
-app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc:///?odbc_connect=%s" % params
+# params = urllib.parse.quote_plus(os.getenv('DB_URI'))
+# app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc:///?odbc_connect=%s" % params
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -101,7 +101,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-instrumentation_key_value = os.getenv("APPINSIGHTS_INSTRUMENTATION_KEY")
+instrumentation_key_value = "446b2b7c-8f28-4e0e-a7be-92ed51d3442a"
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key_value))
@@ -116,7 +116,7 @@ middleware = FlaskMiddleware(
 )
 
 metrics_exporter = MetricsExporter(
-    exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
+    instrumentation_key=instrumentation_key_value,
     interval=15.0
 )
 metrics_exporter.start()
