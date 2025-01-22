@@ -230,6 +230,7 @@ def profile_page():
 @login_required
 def profile_page_get():
     try:
+        print("error na 1")
         query0 = "SELECT transaction_at FROM wallet WHERE user_id = ${current_user.id} AND currency_code='USD' AND amount=100;"
         starter = db.session.execute(query0).fetchall()
         print("Query 0 executed successfully: ", starter)
