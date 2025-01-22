@@ -271,8 +271,13 @@ def profile_page_get():
     dict_wal = {}
     balance = 0
     for curr in currencies:
-        quer = 'SELECT amount FROM wallet WHERE currency_code = :curr AND user_id = :user_id;'
-        wallets = db.session.execute(quer, {'curr': curr, 'user_id': current_user.id}).fetchall()
+        quer = """
+            SELECT amount
+            FROM wallet
+            WHERE currency_code = ?
+            AND user_id = ?
+        """
+        wallets = db.session.execute(quer, (curr, current_user.id)).fetchall()
         amount_in_wallet = [float(t.amount) for t in wallets]
         sum_in_curr = sum(amount_in_wallet)
         dict_wal[curr] = round(sum_in_curr, 2)
