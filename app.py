@@ -55,8 +55,8 @@ app = Flask(__name__, template_folder='./templates', static_folder='./static')
 CORS(app)
 app.debug = True
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-# params = urllib.parse.quote_plus(os.getenv('DB_URI'))
-# app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc:///?odbc_connect=%s" % params
+params = urllib.parse.quote_plus(os.getenv('DB_URI'))
+app.config['SQLALCHEMY_DATABASE_URI'] = "mssql+pyodbc:///?odbc_connect=%s" % params
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
