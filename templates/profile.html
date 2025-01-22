@@ -212,34 +212,4 @@
 
 <script src="../static/js/profile.js"></script>
 
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    // Check if there are errors in the backend response
-    fetch('/profile')
-        .then(response => {
-            console.log('Response status:', response.status); // Log status to console
-            if (!response.ok) {
-                return response.json().then(data => {
-                    console.error('Error details:', data); // Log error details to console
-                    throw new Error(data.error || 'Unknown error');
-                });
-            }
-            return response.text();
-        })
-        .then(html => {
-            console.log('Page loaded successfully'); // Log success message
-            document.body.innerHTML = html; // Render the page if no errors
-        })
-        .catch(error => {
-            console.error('Error caught:', error.message); // Log caught error to console
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: error.message,
-            });
-        });
-</script>
-
-</script>
-
 {% endblock %}
