@@ -101,12 +101,10 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-connection_string = os.getenv("APPINSIGHTS_CONNECTION_STRING")
+connection_string = f'InstrumentationKey=${os.getenv("APPINSIGHTS_INSTRUMENTATION_KEY")}'
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logger.addHandler(AzureLogHandler(
-    connection_string=connection_string
-))
+logger.addHandler(AzureLogHandler(connection_string=connection_string))
 tracer = Tracer(
     exporter=AzureExporter(connection_string=connection_string),
     sampler=ProbabilitySampler(1.0)
