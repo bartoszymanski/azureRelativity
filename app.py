@@ -231,7 +231,7 @@ def profile_page():
 def profile_page_get():
     try:
         print("error na 1")
-        query0 = "SELECT transaction_at FROM wallet WHERE user_id = ${current_user.id} AND currency_code='USD' AND amount=100;"
+        query0 = f"SELECT transaction_at FROM wallet WHERE user_id = {current_user.id} AND currency_code='USD' AND amount=100;"
         starter = db.session.execute(query0).fetchall()
         print("Query 0 executed successfully: ", starter)
 
@@ -247,7 +247,7 @@ def profile_page_get():
         print("Rate fetched from API: ", rate_dict)
         rate = float(rate_dict['rates']['PLN']) * 100
 
-        query1 = 'SELECT currency_code FROM wallet WHERE user_id = ${current_user.id};'
+        query1 = f'SELECT currency_code FROM wallet WHERE user_id = {current_user.id};'
         codes_in_wallet = db.session.execute(query1).fetchall()
         print("Query 1 executed successfully: ", codes_in_wallet)
 
@@ -256,7 +256,7 @@ def profile_page_get():
         balance = 0
 
         for curr in currencies:
-            query2 = 'SELECT amount FROM wallet WHERE currency_code = ${curr} AND user_id = ${current_user.id};'
+            query2 = f'SELECT amount FROM wallet WHERE currency_code = {curr} AND user_id = {current_user.id};'
             wallets = db.session.execute(query2).fetchall()
             print(f"Query 2 executed for currency {curr}: ", wallets)
 
@@ -278,7 +278,7 @@ def profile_page_get():
         print("Balance calculated: ", balance)
         print("Profit calculated: ", profit)
 
-        query3 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = ${current_user.id};'
+        query3 = f'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = {current_user.id};'
         all_transactions = db.session.execute(query3).fetchall()
         print("Query 3 executed successfully: ", all_transactions)
 
