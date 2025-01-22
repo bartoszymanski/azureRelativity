@@ -102,7 +102,7 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-instrumentation_key_value = "446b2b7c-8f28-4e0e-a7be-92ed51d3442a"
+instrumentation_key_value = os.getenv('APPINSIGHTS_INSTRUMENTATION_KEY')
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key_value))
