@@ -296,9 +296,12 @@ def profile_page_get():
         print("History constructed successfully: ", history)
         return render_template('profile.html', dict_wal=dict_wal, balance=balance, hist=history[::-1], profit=round(profit, 3))
 
+    except SQLAlchemyError as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    except requests.RequestException as e:
+        return jsonify({'error': f'External API error: {str(e)}'}), 500
     except Exception as e:
-        print("Error occurred: ", str(e))
-        return "Internal Server Error", 500
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 @app.route('/table')
 def table_page():
