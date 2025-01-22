@@ -103,25 +103,25 @@ def load_user(user_id):
 
 
 instrumentation_key_value = os.getenv('APPINSIGHTS_INSTRUMENTATION_KEY')
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key_value))
-tracer = Tracer(
-    exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
-    sampler=ProbabilitySampler(1.0)
-)
-middleware = FlaskMiddleware(
-    app,
-    exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
-    sampler=ProbabilitySampler(1.0)
-)
-stats = stats_module.stats
-view_manager = stats.view_manager
-metrics_exporter = MetricsExporter(
-    instrumentation_key=instrumentation_key_value,
-    interval=15.0
-)
-view_manager.register_exporter(metrics_exporter)
+#logger = logging.get#logger(__name__)
+#logger.setLevel(logging.INFO)
+#logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key_value))
+# tracer = Tracer(
+#     exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
+#     sampler=ProbabilitySampler(1.0)
+# )
+# middleware = FlaskMiddleware(
+#     app,
+#     exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
+#     sampler=ProbabilitySampler(1.0)
+# )
+# stats = stats_module.stats
+# view_manager = stats.view_manager
+# metrics_exporter = MetricsExporter(
+#     instrumentation_key=instrumentation_key_value,
+#     interval=15.0
+# )
+# view_manager.register_exporter(metrics_exporter)
 
 def log_endpoint_call(endpoint, status):
     log_data = {
@@ -129,7 +129,7 @@ def log_endpoint_call(endpoint, status):
         "status": status,
         "message": f"Endpoint {endpoint} accessed with status {status}"
     }
-    logger.info(log_data)
+    #logger.info(log_data)
 
 @app.route('/')
 @app.route('/home')
@@ -153,7 +153,7 @@ def home_page():
 
 @app.route('/graphs')
 def graphs_page():
-    logger.info("User clicked on /graphs page", extra={"custom_dimensions": {"page": "graphs_page"}})
+    #logger.info("User clicked on /graphs page", extra={"custom_dimensions": {"page": "graphs_page"}})
     log_endpoint_call("graph", 200)
     return render_template('graphs.html')
 
@@ -167,11 +167,11 @@ def login_page():
                 attempted_password=form.password.data
         ):
             login_user(attempted_user)
-            logger.info(f"User {attempted_user.username} logged in successfully.")
+            #logger.info(f"User {attempted_user.username} logged in successfully.")
             flash(f'Success! You are logged in as: {attempted_user.username}', category='success')
             return redirect(url_for('home_page'))
         else:
-            logger.warning(f"Failed login attempt for username: {form.username.data}")
+            #logger.warning(f"Failed login attempt for username: {form.username.data}")
             flash('Username and password are not match! Please try again', category='danger')
     log_endpoint_call("login", 200)
     return render_template('login.html', form=form)
@@ -187,7 +187,7 @@ def signin_page():
         db.session.add(user_to_create)
         db.session.commit()
         login_user(user_to_create)
-        logger.info(f"New user {user_to_create.username} registered and logged in.")
+        #logger.info(f"New user {user_to_create.username} registered and logged in.")
         log_endpoint_call("signin", 200)
         waluty = ["PLN", "GBP", "USD", "CAD"]
         for w in waluty:
@@ -201,7 +201,7 @@ def signin_page():
         return redirect(url_for('home_page'))
     if form.errors != {}:
         for err_msg in form.errors.values():
-            logger.error(f"Error creating user: {err_msg}")
+            #logger.error(f"Error creating user: {err_msg}")
             flash(f'There was an error with creating a user: {err_msg}', category='danger')
     return render_template('signin.html', form=form)
 
@@ -217,7 +217,7 @@ def profile_page():
             WHERE currency_code = ?
             AND user_id = ?
         """
-        logger.info(f"User {current_user.username} initiated a transaction.")
+        #logger.info(f"User {current_user.username} initiated a transaction.")
         log_endpoint_call("profile", 200)
         wallets = db.session.execute(quer, (data["code_1"], current_user.id)).fetchall()
         amount_in_wallet = [float(t.amount) for t in wallets]
@@ -326,9 +326,9 @@ def table_page():
 def logout_page():
     log_endpoint_call("logout", 200)
     if current_user.is_authenticated:
-        logger.info(f"User {current_user.username} logged out.")
+        #logger.info(f"User {current_user.username} logged out.")
     else:
-        logger.info("Anonymous user attempted to log out.")
+        #logger.info("Anonymous user attempted to log out.")
     logout_user()
     flash("You have been logged out!", category='info')
     return redirect(url_for("home_page"))
