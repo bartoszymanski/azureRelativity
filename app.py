@@ -230,7 +230,7 @@ def profile_page():
 @login_required
 def profile_page_get():
     query0 = 'SELECT transaction_at FROM wallet WHERE user_id = ? AND currency_code="USD" AND amount=100;'
-    starter = db.session.execute(query0, [current_user.id]).fetchall()
+    starter = db.session.execute(query0, (current_user.id,)).fetchall()
     if not starter:
         return "No transactions for this user with USD 100", 404
 
@@ -241,7 +241,7 @@ def profile_page_get():
     rate = float(rate_dict['rates']['PLN']) * 100
 
     query1 = 'SELECT currency_code FROM wallet WHERE user_id = ?;'
-    codes_in_wallet = db.session.execute(query1, [current_user.id]).fetchall()
+    codes_in_wallet = db.session.execute(query1, (current_user.id,)).fetchall()
     currencies = list(set([row.currency_code for row in codes_in_wallet]))
 
     dict_wal = {}
@@ -249,7 +249,7 @@ def profile_page_get():
 
     for curr in currencies:
         query2 = 'SELECT amount FROM wallet WHERE currency_code = ? AND user_id = ?;'
-        wallets = db.session.execute(query2, [curr, current_user.id]).fetchall()
+        wallets = db.session.execute(query2, (curr, current_user.id)).fetchall()
         amount_in_wallet = [float(t.amount) for t in wallets]
         sum_in_curr = sum(amount_in_wallet)
         dict_wal[curr] = round(sum_in_curr, 2)
@@ -266,7 +266,7 @@ def profile_page_get():
     profit = round(((balance - rate) / rate), 3) * 100
 
     query3 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = ?;'
-    all_transactions = db.session.execute(query3, [current_user.id]).fetchall()
+    all_transactions = db.session.execute(query3, (current_user.id,)).fetchall()
     history = []
     for row in all_transactions:
         if row.amount != 0:
