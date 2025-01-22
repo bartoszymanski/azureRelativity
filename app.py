@@ -20,6 +20,7 @@ from opencensus.ext.azure.trace_exporter import AzureExporter
 from opencensus.ext.flask.flask_middleware import FlaskMiddleware
 from opencensus.trace.tracer import Tracer
 from opencensus.trace.samplers import ProbabilitySampler
+from opencensus.stats import stats as stats_module
 
 class RegisterForm(FlaskForm):
     def validate_username(self, username_to_check):
@@ -114,12 +115,13 @@ middleware = FlaskMiddleware(
     exporter=AzureExporter(instrumentation_key=instrumentation_key_value),
     sampler=ProbabilitySampler(1.0)
 )
-
+stats = stats_module.stats
+view_manager = stats.view_manager
 metrics_exporter = MetricsExporter(
     instrumentation_key=instrumentation_key_value,
     interval=15.0
 )
-metrics_exporter.start()
+view_manager.register_exporter(metrics_exporter)
 
 def log_endpoint_call(endpoint, status):
     log_data = {
