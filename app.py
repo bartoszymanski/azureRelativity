@@ -203,35 +203,46 @@ def signin_page():
 @app.route('/profile', methods=['POST'])
 @login_required
 def profile_page():
-    data = request.get_json(force=True)
-    if data:
-        quer = """
-            SELECT *
-            FROM wallet
-            WHERE currency_code = ?
-            AND user_id = ?
-        """
-        #logger.info(f"User {current_user.username} initiated a transaction.")
-        log_endpoint_call("profile", 200)
-        wallets = db.session.execute(quer, (data["code_1"], current_user.id)).fetchall()
-        amount_in_wallet = [float(t.amount) for t in wallets]
-        sum_in_curr = sum(amount_in_wallet)
-        if float(sum_in_curr) >= float(data['content']):
-            rate_dict = requests.get(
-                f"https://api.frankfurter.app/latest?amount={data['content']}&from={data['code_1']}&to={data['code_2']}").json()
-            rate = float(rate_dict['rates'][data['code_2']])
-            obj_from = Wallet(user_id=current_user.id, currency_code=data['code_1'], amount=-round(float(data['content']), 2))
-            obj_to = Wallet(user_id=current_user.id, currency_code=data['code_2'], amount=round(rate, 2))
-            db.session.add(obj_from)
-            db.session.commit()
-            db.session.add(obj_to)
-            db.session.commit()
-            return '', 204
-        else:
-            return 'Transaction refused.', 400
-    else:
-        return 'Transaction refused.', 400
+    try:
+        data = request.get_json(force=True)
+        if data:
+            # Query 0: Validate wallet data for user
+            quer = """
+                SELECT *
+                FROM wallet
+                WHERE currency_code = ?
+                AND user_id = ?
+            """
+            wallets = db.session.execute(quer, (data["code_1"], current_user.id)).fetchall()
+            amount_in_wallet = [float(t.amount) for t in wallets]
+            sum_in_curr = sum(amount_in_wallet)
 
+            if float(sum_in_curr) >= float(data['content']):
+                # Fetch exchange rate
+                rate_dict = requests.get(
+                    f"https://api.frankfurter.app/latest?amount={data['content']}&from={data['code_1']}&to={data['code_2']}"
+                ).json()
+                rate = float(rate_dict['rates'][data['code_2']])
+
+                # Update wallet balances
+                obj_from = Wallet(user_id=current_user.id, currency_code=data['code_1'], amount=-round(float(data['content']), 2))
+                obj_to = Wallet(user_id=current_user.id, currency_code=data['code_2'], amount=round(rate, 2))
+                db.session.add(obj_from)
+                db.session.commit()
+                db.session.add(obj_to)
+                db.session.commit()
+
+                return '', 204
+            else:
+                return jsonify({'error': 'Insufficient funds for transaction.'}), 400
+        else:
+            return jsonify({'error': 'Invalid request data.'}), 400
+    except SQLAlchemyError as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
+    except requests.RequestException as e:
+        return jsonify({'error': f'External API error: {str(e)}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 @app.route('/profile')
 @login_required
