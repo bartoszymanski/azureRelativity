@@ -14,13 +14,6 @@ from wtforms.validators import Length, EqualTo, Email, DataRequired, ValidationE
 from flask_cors import CORS
 import os
 import logging
-from opencensus.ext.azure.log_exporter import AzureLogHandler
-from opencensus.ext.azure.metrics_exporter import MetricsExporter
-from opencensus.ext.azure.trace_exporter import AzureExporter
-from opencensus.ext.flask.flask_middleware import FlaskMiddleware
-from opencensus.trace.tracer import Tracer
-from opencensus.trace.samplers import ProbabilitySampler
-from opencensus.stats import stats as stats_module
 
 class RegisterForm(FlaskForm):
     def validate_username(self, username_to_check):
