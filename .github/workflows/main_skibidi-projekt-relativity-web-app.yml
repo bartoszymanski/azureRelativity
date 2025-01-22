@@ -59,15 +59,11 @@ jobs:
       - name: Unzip artifact for deployment
         run: unzip release.zip
 
-      - name: Get Publish Profile
-        run: |
-          echo "::set-output name=PUBLISH_PROFILE::$(az webapp deployment list-publishing-profiles -g 'project-relativity' -n 'skibidi-projekt-relativity-web-app' --xml)"
-        id: getPublishProfile
-
+      
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
           app-name: 'skibidi-projekt-relativity-web-app'
           slot-name: 'Production'
-          publish-profile: ${{ steps.getPublishProfile.outputs.PUBLISH_PROFILE }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_74DD7D7B38EC4EEFB121F2DDD9554213 }}
