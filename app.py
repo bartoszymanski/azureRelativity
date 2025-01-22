@@ -326,8 +326,10 @@ def table_page():
 def logout_page():
     log_endpoint_call("logout", 200)
     if current_user.is_authenticated:
+        print("User logged out")
         #logger.info(f"User {current_user.username} logged out.")
     else:
+        print("Anonymous user attempted to log out.")
         #logger.info("Anonymous user attempted to log out.")
     logout_user()
     flash("You have been logged out!", category='info')
