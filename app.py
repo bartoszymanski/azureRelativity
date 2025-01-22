@@ -229,56 +229,75 @@ def profile_page():
 @app.route('/profile')
 @login_required
 def profile_page_get():
-    query0 = 'SELECT transaction_at FROM wallet WHERE user_id = ? AND currency_code="USD" AND amount=100;'
-    starter = db.session.execute(query0, (current_user.id,)).fetchall()
-    if not starter:
-        return "No transactions for this user with USD 100", 404
+    try:
+        query0 = 'SELECT transaction_at FROM wallet WHERE user_id = ? AND currency_code="USD" AND amount=100;'
+        starter = db.session.execute(query0, (current_user.id,)).fetchall()
+        print("Query 0 executed successfully: ", starter)
 
-    start_date_obj = starter[0].transaction_at
-    date_str = start_date_obj.strftime("%Y-%m-%d")
+        if not starter:
+            print("No transactions found with USD 100")
+            return "No transactions for this user with USD 100", 404
 
-    rate_dict = requests.get(f"https://api.frankfurter.app/{date_str}?from=USD&to=PLN").json()
-    rate = float(rate_dict['rates']['PLN']) * 100
+        start_date_obj = starter[0].transaction_at
+        date_str = start_date_obj.strftime("%Y-%m-%d")
+        print("Transaction date extracted: ", date_str)
 
-    query1 = 'SELECT currency_code FROM wallet WHERE user_id = ?;'
-    codes_in_wallet = db.session.execute(query1, (current_user.id,)).fetchall()
-    currencies = list(set([row.currency_code for row in codes_in_wallet]))
+        rate_dict = requests.get(f"https://api.frankfurter.app/{date_str}?from=USD&to=PLN").json()
+        print("Rate fetched from API: ", rate_dict)
+        rate = float(rate_dict['rates']['PLN']) * 100
 
-    dict_wal = {}
-    balance = 0
+        query1 = 'SELECT currency_code FROM wallet WHERE user_id = ?;'
+        codes_in_wallet = db.session.execute(query1, (current_user.id,)).fetchall()
+        print("Query 1 executed successfully: ", codes_in_wallet)
 
-    for curr in currencies:
-        query2 = 'SELECT amount FROM wallet WHERE currency_code = ? AND user_id = ?;'
-        wallets = db.session.execute(query2, (curr, current_user.id)).fetchall()
-        amount_in_wallet = [float(t.amount) for t in wallets]
-        sum_in_curr = sum(amount_in_wallet)
-        dict_wal[curr] = round(sum_in_curr, 2)
+        currencies = list(set([row.currency_code for row in codes_in_wallet]))
+        dict_wal = {}
+        balance = 0
 
-        if 'PLN' not in curr:
-            url = f'https://api.frankfurter.app/latest?from={curr}&to=PLN'
-            response = requests.get(url).json()
-            value = round(response["rates"]["PLN"], 2)
-        else:
-            value = 1
-        balance += sum_in_curr * value
+        for curr in currencies:
+            query2 = 'SELECT amount FROM wallet WHERE currency_code = ? AND user_id = ?;'
+            wallets = db.session.execute(query2, (curr, current_user.id)).fetchall()
+            print(f"Query 2 executed for currency {curr}: ", wallets)
 
-    balance = round(balance, 2)
-    profit = round(((balance - rate) / rate), 3) * 100
+            amount_in_wallet = [float(t.amount) for t in wallets]
+            sum_in_curr = sum(amount_in_wallet)
+            dict_wal[curr] = round(sum_in_curr, 2)
 
-    query3 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = ?;'
-    all_transactions = db.session.execute(query3, (current_user.id,)).fetchall()
-    history = []
-    for row in all_transactions:
-        if row.amount != 0:
-            formatted_date = row.transaction_at.strftime("%Y-%m-%d %H:%M:%S")
-            history_dict = {
-                'date': formatted_date,
-                'code': row.currency_code,
-                'amount': round(row.amount, 2)
-            }
-            history.append(history_dict)
+            if 'PLN' not in curr:
+                url = f'https://api.frankfurter.app/latest?from={curr}&to=PLN'
+                response = requests.get(url).json()
+                print(f"Exchange rate fetched for {curr} to PLN: ", response)
+                value = round(response["rates"]["PLN"], 2)
+            else:
+                value = 1
+            balance += sum_in_curr * value
 
-    return render_template('profile.html', dict_wal=dict_wal, balance=balance, hist=history[::-1], profit=round(profit, 3))
+        balance = round(balance, 2)
+        profit = round(((balance - rate) / rate), 3) * 100
+        print("Balance calculated: ", balance)
+        print("Profit calculated: ", profit)
+
+        query3 = 'SELECT transaction_at, currency_code, amount FROM wallet WHERE user_id = ?;'
+        all_transactions = db.session.execute(query3, (current_user.id,)).fetchall()
+        print("Query 3 executed successfully: ", all_transactions)
+
+        history = []
+        for row in all_transactions:
+            if row.amount != 0:
+                formatted_date = row.transaction_at.strftime("%Y-%m-%d %H:%M:%S")
+                history_dict = {
+                    'date': formatted_date,
+                    'code': row.currency_code,
+                    'amount': round(row.amount, 2)
+                }
+                history.append(history_dict)
+
+        print("History constructed successfully: ", history)
+        return render_template('profile.html', dict_wal=dict_wal, balance=balance, hist=history[::-1], profit=round(profit, 3))
+
+    except Exception as e:
+        print("Error occurred: ", str(e))
+        return "Internal Server Error", 500
 
 @app.route('/table')
 def table_page():
