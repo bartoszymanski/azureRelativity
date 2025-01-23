@@ -18,7 +18,8 @@ The goal of this project is to create a scalable, reliable, and secure applicati
 - **View Exchange Rates**: Access up-to-date exchange rates for various currencies.
 - **Transaction History**: Keep track of all past transactions for reference.
 
-![c2_diagram](https://github.com/user-attachments/assets/cec540e1-499d-4d7f-b524-acbce0920947)
+
+![c2_diagram](https://github.com/user-attachments/assets/65b2589c-0a3d-4d08-ad93-eca243a4a824)
 
 *This C2 diagram describes how the application works.*
 
