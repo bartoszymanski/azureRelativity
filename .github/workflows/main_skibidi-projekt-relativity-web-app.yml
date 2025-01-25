@@ -66,4 +66,4 @@ jobs:
         with:
           app-name: 'skibidi-projekt-relativity-web-app'
           slot-name: 'Production'
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_7CA891BB648645BD947B009F5B67B5AB }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_68F175B3860B4C88802A2CA1455F70DE }}
